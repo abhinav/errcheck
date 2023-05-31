@@ -26,4 +26,11 @@ func TestAnalyzer(t *testing.T) {
 		_ = analysistest.Run(t, packageDir, Analyzer)
 		_ = Analyzer.Flags.Set("assert", "false") // reset it
 	})
+
+	t.Run("ignore defer", func(t *testing.T) {
+		packageDir := filepath.Join(analysistest.TestData(), "src/ignore_defer/")
+		_ = Analyzer.Flags.Set("ignore-defer", "true")
+		_ = analysistest.Run(t, packageDir, Analyzer)
+		_ = Analyzer.Flags.Set("ignore-defer", "false") // reset it
+	})
 }

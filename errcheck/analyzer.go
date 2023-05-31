@@ -21,10 +21,12 @@ var (
 	argAsserts     bool
 	argExcludeFile string
 	argExcludeOnly bool
+	argIgnoreDefer bool
 )
 
 func init() {
 	Analyzer.Flags.BoolVar(&argBlank, "blank", false, "if true, check for errors assigned to blank identifier")
+	Analyzer.Flags.BoolVar(&argIgnoreDefer, "ignore-defer", false, "if true, don't check errors returned by the outermost call of a defer statement")
 	Analyzer.Flags.BoolVar(&argAsserts, "assert", false, "if true, check for ignored type assertion results")
 	Analyzer.Flags.StringVar(&argExcludeFile, "exclude", "", "Path to a file containing a list of functions to exclude from checking")
 	Analyzer.Flags.BoolVar(&argExcludeOnly, "excludeonly", false, "Use only excludes from exclude file")
@@ -50,14 +52,15 @@ func runAnalyzer(pass *analysis.Pass) (interface{}, error) {
 	var allErrors []UncheckedError
 	for _, f := range pass.Files {
 		v := &visitor{
-			typesInfo: pass.TypesInfo,
-			fset:      pass.Fset,
-			blank:     argBlank,
-			asserts:   argAsserts,
-			exclude:   exclude,
-			ignore:    map[string]*regexp.Regexp{}, // deprecated & not used
-			lines:     make(map[string][]string),
-			errors:    nil,
+			typesInfo:   pass.TypesInfo,
+			fset:        pass.Fset,
+			blank:       argBlank,
+			ignoreDefer: argIgnoreDefer,
+			asserts:     argAsserts,
+			exclude:     exclude,
+			ignore:      map[string]*regexp.Regexp{}, // deprecated & not used
+			lines:       make(map[string][]string),
+			errors:      nil,
 		}
 
 		ast.Walk(v, f)

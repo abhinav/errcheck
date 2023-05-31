@@ -150,6 +150,15 @@ type Checker struct {
 	// Tags are a list of build tags to use.
 	Tags []string
 
+	// IgnoreDefer specifies whether we should ignore errors returned by
+	// outermost call expressions in a defer statement.
+	//
+	// For example, if IgnoreDefer is true, errcheck will not warn about
+	// the error returned by File.Close in:
+	//
+	//	defer file.Close()
+	IgnoreDefer bool
+
 	// The mod flag for go build.
 	Mod string
 }
@@ -218,14 +227,15 @@ func (c *Checker) CheckPackage(pkg *packages.Package) Result {
 	}
 
 	v := &visitor{
-		typesInfo: pkg.TypesInfo,
-		fset:      pkg.Fset,
-		ignore:    ignore,
-		blank:     !c.Exclusions.BlankAssignments,
-		asserts:   !c.Exclusions.TypeAssertions,
-		lines:     make(map[string][]string),
-		exclude:   excludedSymbols,
-		errors:    []UncheckedError{},
+		typesInfo:   pkg.TypesInfo,
+		fset:        pkg.Fset,
+		ignore:      ignore,
+		blank:       !c.Exclusions.BlankAssignments,
+		ignoreDefer: c.IgnoreDefer,
+		asserts:     !c.Exclusions.TypeAssertions,
+		lines:       make(map[string][]string),
+		exclude:     excludedSymbols,
+		errors:      []UncheckedError{},
 	}
 
 	for _, astFile := range pkg.Syntax {
@@ -239,13 +249,14 @@ func (c *Checker) CheckPackage(pkg *packages.Package) Result {
 
 // visitor implements the errcheck algorithm
 type visitor struct {
-	typesInfo *types.Info
-	fset      *token.FileSet
-	ignore    map[string]*regexp.Regexp
-	blank     bool
-	asserts   bool
-	lines     map[string][]string
-	exclude   map[string]bool
+	typesInfo   *types.Info
+	fset        *token.FileSet
+	ignore      map[string]*regexp.Regexp
+	blank       bool
+	ignoreDefer bool
+	asserts     bool
+	lines       map[string][]string
+	exclude     map[string]bool
 
 	errors []UncheckedError
 }
@@ -566,7 +577,7 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 			v.addErrorAtPosition(stmt.Call.Lparen, stmt.Call)
 		}
 	case *ast.DeferStmt:
-		if !v.ignoreCall(stmt.Call) && v.callReturnsError(stmt.Call) {
+		if !v.ignoreDefer && !v.ignoreCall(stmt.Call) && v.callReturnsError(stmt.Call) {
 			v.addErrorAtPosition(stmt.Call.Lparen, stmt.Call)
 		}
 	case *ast.GenDecl:
